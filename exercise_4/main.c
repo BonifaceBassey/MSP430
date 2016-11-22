@@ -100,28 +100,26 @@ int adc_range(int ADCValue)
 void adc_usage(unsigned char range)
 {
 	unsigned char i;
-	if (range)
+	if (range == 0)
 	{
-		// Initialize shift register
-		sreg_init();
-		// SR data = 1
-		P2OUT |= SR;
-		for ( i = 0; i < range; i++)
-		{
-			// Toggle clock
-			clock_pulse();					
-		}
-	}
-	else{
 		// Initialize shift register
 		sreg_init();
 		// SR data = 0
 		P2OUT &= ~SR;
-		for ( i = 0; i < 4; i++)
-		{
-			// Toggle clock
-			clock_pulse();
-		}		
+		// all leds shall be off
+		range = 4;
+	}else{
+		// Initialize shift register
+		sreg_init();
+		// SR data = 1
+		P2OUT |= SR;
+	}
+	
+	// shift in values according to range
+	for ( i = 0; i < range; i++)
+	{
+		// Toggle clock
+		clock_pulse();					
 	}
 }
 
