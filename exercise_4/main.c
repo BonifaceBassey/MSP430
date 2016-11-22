@@ -7,18 +7,16 @@
 
 #include "templateEMP.h"
 
-#define POTI		BIT5 // to CON3:P1.5
-#define LDR 		BIT4 // to CON3:P1.4
-#define RED_LED 	BIT0 // to CON3:P3.0
-#define GREEN_LED 	BIT1 // to CON3:P3.1
-#define BLUE_LED 	BIT2 // to CON3:P3.2
+#define POTI		BIT5 // to P1.5
+#define LDR 		BIT4 // to P1.4
+#define RED_LED 	BIT0 // to P3.0
+#define GREEN_LED 	BIT1 // to P3.1
+#define BLUE_LED 	BIT2 // to P3.2
 #define S0_SR2		BIT0 // to P2.0
 #define	S1_SR2		BIT1 // to P2.1
 #define	CLK	    	BIT4 // to P2.4
 #define CLR 		BIT5 // to P2.5
 #define SR	    	BIT6 // to P2.6
-
-int adcResult=0;
 
 void pins_init(void)
 {
@@ -27,15 +25,13 @@ void pins_init(void)
 	P3SEL2 &= ~( RED_LED + GREEN_LED + BLUE_LED );
 	P2SEL  &= ~( S0_SR2 + S1_SR2 + CLK + CLR + SR );
 	P2SEL2 &= ~( S0_SR2 + S1_SR2 + CLK + CLR + SR );
-	P1SEL  &= ~( POTI + LDR );
-	P1SEL2 &= ~( POTI + LDR );
+	// Secondary peripheral module function is selected.
+	P1SEL  |=  ( POTI + LDR );
+	P1SEL2 |=  ( POTI + LDR );
 
 	// Output pins
 	P3DIR |= ( RED_LED + GREEN_LED + BLUE_LED );
 	P2DIR |= ( S0_SR2 + S1_SR2 + CLK + CLR + SR );
-
-	// Input pins
-	P1DIR &= ~( POTI + LDR );
 
 	// Pin values are initially zero
 	P3OUT &= ~( RED_LED + GREEN_LED + BLUE_LED );
@@ -47,9 +43,9 @@ void adc_init(void)
 	// Turn ADC on ; use 16 clocks as sample & hold time ( see p . 559 in the user guide )
 	ADC10CTL0 = ADC10ON + ADC10SHT_2 ;
 	// Enable P1 .7 as AD input
-	ADC10AE0 |= BIT7 ;
+	ADC10AE0 |= POTI ;
 	// Select channel 7 as input for the following conversion
-	ADC10CTL1 = INCH_7 ;
+	ADC10CTL1 = INCH_5 ;
 }
 
 void sreg_init(void)
@@ -58,15 +54,15 @@ void sreg_init(void)
 	P2OUT &= ~CLR;
 	// Shift right, enable shift register
 	P2OUT |= S0_SR2 + CLR; 
-	// Shift right data
-	P2OUT |= SR;
 }
 
 // SREG clock pulse
-void __clockPulse(void)
+void clock_pulse(void)
 {
-	P2OUT |= CLK;	// rising clock edge 
-	P2OUT &= ~CLK;	// falling clock edge
+	// rising clock edge 
+	P2OUT |= CLK;	
+	// falling clock edge
+	P2OUT &= ~CLK;	
 }
 
 int adc_value(void)
@@ -76,45 +72,57 @@ int adc_value(void)
 	// Wait until result is ready
 	while ( ADC10CTL1 & ADC10BUSY ) ;
 	// If result is ready , copy it to val
-	int val = ADC10MEM ;
-	// Print m1 to the serial console
-	serialPrintInt ( val );
+	int ADCValue = ADC10MEM ;
+	// Print val to the serial console
+	serialPrintInt ( ADCValue );
 	serialPrintln ( " " );
 	// return the result of conversion
-	return val;
+	return ADCValue;
 }
 
-int adc_range(int adc)
+int adc_range(int ADCValue)
 {
-	unsigned char var = 0;
-	adcResult = adc/5;
-
-	if (adcResult < 205)
-		var = 0;
-	else if ((adcResult > 204) && (adcResult < 410))
-		var = 1;
-	else if ((adcResult > 409) && (adcResult < 615))
-		var = 2;
-	else if ((adcResult > 614) && (adcResult < 820))
-		var = 3;
+	unsigned char ledRange = 0;
+	if (ADCValue < 205)
+		ledRange = 0;
+	else if ((ADCValue > 204) && (ADCValue < 410))
+		ledRange = 1;
+	else if ((ADCValue > 409) && (ADCValue < 615))
+		ledRange = 2;
+	else if ((ADCValue > 614) && (ADCValue < 820))
+		ledRange = 3;
 	else
-		var = 4;
-	return var;
+		ledRange = 4;
+	// return led range
+	return ledRange;
 }
 
 void adc_usage(unsigned char range)
 {
+	unsigned char i;
 	if (range)
 	{
+		// Initialize shift register
+		sreg_init();
+		// SR data = 1
+		P2OUT |= SR;
 		for ( i = 0; i < range; i++)
 		{
-
+			// Toggle clock
+			clock_pulse();					
 		}
 	}
 	else{
-
+		// Initialize shift register
+		sreg_init();
+		// SR data = 0
+		P2OUT &= ~SR;
+		for ( i = 0; i < 4; i++)
+		{
+			// Toggle clock
+			clock_pulse();
+		}		
 	}
-
 }
 
 
@@ -130,6 +138,7 @@ void main ( void ) {
 	
 	while (1)
 	{
+		// Light up leds according to ADC range
 		adc_usage(adc_range(adc_value()));
 	}
 }
