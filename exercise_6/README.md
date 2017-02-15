@@ -7,7 +7,7 @@ sudo apt-get -o Dpkg::Options::="--force-overwrite" install gdb-msp430
 
 # USAGE  
 
-cd ../exercise_4
+cd ../exercise_6
                                                                                                            
 make         :buids assembly (.s), and executable (.elf)
                             
